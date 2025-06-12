@@ -32,8 +32,9 @@ public class RealWearScreenshotUploader : MonoBehaviour
 
     public void CaptureAndUpload()
     {
-        StartCoroutine(CaptureCameraFrameAndUploadCoroutine());
         m_wearHf.ClearCommands();
+        StartCoroutine(CaptureCameraFrameAndUploadCoroutine());
+        
     }
 
     private IEnumerator CaptureCameraFrameAndUploadCoroutine()
