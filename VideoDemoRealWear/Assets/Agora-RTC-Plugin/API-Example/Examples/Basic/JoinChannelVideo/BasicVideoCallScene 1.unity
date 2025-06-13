@@ -328,7 +328,7 @@ MonoBehaviour:
   _takePhotoButton: {fileID: 0}
   _receivedImage: {fileID: 248513860}
   wearHFManager: {fileID: 1344615015}
-  RealWearUI: {fileID: 566223297}
+  RealWearUI: {fileID: 1577940795}
   remoteUserSpawnArea: {fileID: 1851222314}
   remoteUserButtonPrefab: {fileID: 7610920159602893244, guid: 7b7abdceb79b30543ab8360b8121d60a,
     type: 3}
@@ -2990,7 +2990,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &362296487
 RectTransform:
   m_ObjectHideFlags: 0
@@ -3017,13 +3017,13 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 362296486}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1344c3c82d62a2a41a3576d8abb8e3ea, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -6510,7 +6510,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &900542655
 RectTransform:
   m_ObjectHideFlags: 0
@@ -12280,8 +12280,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   statusText: {fileID: 1498748718}
-  dropboxAccessToken: sl.u.AFy71ZrFNoKtMTy9X9Ab4SgzgJEAzYQZZ3j5R31W8YJD9PWO14EIptkLvHCvZec-z7Nla1gSmZge4mLHLLpp75u_cmlLGwysmlgfXY_qIxV0XkwtXH1cKVh4Ee_9crjSboF9EdvWdZuHEFnQto2-g1S_k9Sd_xRunwQiv7DV5MD0ruLUZtM5XhK-NktqyS75obkX_n3h-8o-Rt926WCiXsFWytC_FCtDncYMoOa_jG97HqB_6pTf3yFVGMPaBD8Cjs_sm9LqA-jeSitvbiktgG_bhULRgL7kJ_vrp0JpvV-CGatrOPDP5E72c_SPuczhR-RO3wvx6PEPxE8vykMGO4rkxaZPJltT83IixgVtEQHo-PnA600JpWVnsLsLAKP_NRVkrbS-KQ2Du7LJdgK-OPMd-kDYpamVqx4BjXaFWsepuPzSXhqOlwKG2r1NDXTCXSBbsalh7wjtDm-JP9tCEF8e473tSUQJwh4KJfNh5f3De0FxHTt4IkFtIv4LtamrfNv4iZlOYVBoVPoZaXrZDrROk1n8P9nbYBg92gdT-aJnrIM47WEpfJqEr7L9MDjhvgkcU34L7O_vR4tUMKlpnB5Vi99xN-Pi9XxEWcmi9MN09CamVzGeurKLqMuGvsxu21SO9KmuqBWywH8Mx_pkmmOBFLaQLsHft8MtEnoIQ3do0vUHr60jlvMfkoPuof36yMU5mC_T5Zq1dVvMmL6wj_3hEY15Hx-uySc01St7PKZLgcGO6_9I7jFi0Hls6SJgpfy5YTh932RDjxBx9aRQf_eq4cmmM9tZd_QGG1-Cm9HdapkKVj2n0AI07ihg6jTcz5SXC5v2nGUcgMEZ12JsmP-gkM_1LDBbmncDG_g5fXDKk5rHqbWlJx1Y2AK3ZSVazVDib1vX2J8RAzGy8XTs6zJGhxoIN_i7Kz9r5oV3DwvJhi8Eqv9_zc4poKwyvIfiisQREGiobCx0HL4VY1ixnac1GskCqdet-tMvq9dpQw9V1tAJvXrjLI96jS_gf6KrfDHtnVLJZKsmlVg7l3-_wjcEYTHz-ByVHAPLybnU_MTzqNGz98theu9ri4g6GpLRpJbud32lrgimxr1ncN3CIeJpOfLGTK8HyBY-6d9RruwThUGPCrXyLlKrVCE0RjPhT7DH0hg4MTlmT8erNdrBNc0wZ_9jNkmVL3uTELspj6HOLmC_AqlUOT-8vafeo-mHTDKEfop4G0riF_TC3Sk6r_DbwWBH2Rj-awIJZf7AKzLAviumU3ZKxiIS2oJsBS0h0z_-RodIcGJRBlEOYR9noWSglOR2SlAQqUvhBnDr5tWyFGKqHtHOxxxwOskbl8wlS_Q0y8o_3-ilhR76Wx4FfdCBqY4OMey5TX1TKqP9OqgvD9UgwnDsa6sqLnPoCnmpqlJRlt1JZnQCTT-tjwruj3Dmscg0KxGaS6uz5IoekhwSJ1KaoMcinrTmoepCkm3JLEc
-  JoinChannelVideoWithRealWear: {fileID: 37861330}
+  dropboxAccessToken: sl.u.AFw2BgeWa9m4h7AZb1kS6KICJd8KLVdYd-i9Zoj38Sp5mM89ei6oM4VEZMmavM9zEazxxITJHn3IZAXckpmCd-LWefx3KocriKy9gS-S489JgfMZ4vS7uY4v7bnLx7x0CBf2W_jmH3zPvZsmI3J9W5BF_EfqtscT2OrF1kjxf-GJVrgWJA_x2RESiQmYGRhAhMovfOkkE92xt1PbDNooVhG3vY8tX8dUKOFhFE5BBwBX3-OtKJgmUC0nv0GPiP_LjeGMJdMqzdMWgj6908kS4Sk-Ev2MqyjnWvQvc5SnYTGDrCbWHYmlVCZpL_2By0WfD_fTo2Tv9MdKR7a98IAK4vojgaFF7CR4pHc1Bj42v3Mtf6dkwXXiigNqpqQMNzPbTOagWaIG1qf8AsAkT9a29PMCKwUtluoTYGmYRp_poGBB248b6bCcU5TD1PRDE4CnhBhc-VxmdKOalqBfePBBCUayHxbnQ8CnCBXpMi7fsMv3J_8R5-os3LtLA6tldVsm9mFyKX05y9n1tZX2aBYhErE4VGVWVPqhIzCH650W0v5K1oW__lCzNVD5AxBcYZ4yCkcgOxxcnoEGB8xNznqTZvU6PG5UOu92V9mAYG4oUYaEMLdzyy0zx-ev6pWMlxQaaYAZyF4fTNLzM4w6h4fPGZdouBqlVEPYLcCGgUJMMaADe_kpsqhLyAQNplp2doSTgmyB7M4HSjfi4R4h-t3b2EEcRBSPF0b6hrzeYYhnOGdNcCddct1nTOzUDPQ4S4BWrGnvFIZ6KKDjJ6yzj3CqNySXcMjAfwMKwg52QyYURmOT6aXxFZTva1DKJ6MDcaW5xcLVvCOTV32fgPjr36FkzzKeAYbKv4mQZfDQ8-tew6kvlEMNIupGrwuUtltMc8aemCW7xe7r2Ts4w_D3Drrg0KNMEU1VKIkX6rJPk3ayzR_osNVpP72ZoFTLk1_4s3CEZ75zYIrLwnN16nLgzMsPd305yavUQs6fNgmmbCRyATmfmUeA82Qn3G70I63OcRcEnTjFtNKbVJhCJ3S2NpBEeNzS_r8tm5Yqpe6EqxJqaROYgslYoCKUN8ITkoIEMXqscVIUYy0EuWjhyOtt2T2dFQ7rpvWjoGydPPpsSNe04nj0fSkKPUbnmItv6RrfgdpUflQS-kPHx3_bbuE1v3lIdODONf3ZiN0aFCjsy3J4tnH7yl7YEEOHT-UiQ6l8PYuFqX7UzLXkuvpGnBQVlmMHSrmZhCDfn0zjoUPtQlJCg7NeQrdDvXzqVjv2Y8erGXV77iJ80XfhhCuX6MbQsJlyX0UvG8MUvs70pWTRscGanHzaFJajCF4tWHIxMqeGv6ckm36YjTGyuIvLlZ-PHM-idHpfsdtAhCC5mHu3W6lnuOUyfzuRnuEkyzqnoP4UEz6lPedkffiDuGHh--LiMv1pVElZMfJirv9hTt_ZXQm9RyUdLlS4oLB7tzO5CqGSVZFLjZM
+  joinChannelVideoWithRealWear: {fileID: 37861330}
 --- !u!224 &1728917178 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 4040907047891774515, guid: 7b7abdceb79b30543ab8360b8121d60a,
@@ -13109,7 +13109,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1784122751
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -13574,8 +13574,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0.5}
   m_AnchorMax: {x: 0, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 567.3237, y: 1080}
+  m_AnchoredPosition: {x: 0, y: -47.59723}
+  m_SizeDelta: {x: 470.5549, y: 984.8057}
   m_Pivot: {x: 0, y: 0.5}
 --- !u!114 &1851222315
 MonoBehaviour:

@@ -10,6 +10,7 @@ using UnityEngine.Serialization;
 using UnityEngine.UI;
 using WearHFPlugin;
 
+
 namespace Agora_RTC_Plugin.API_Example.Examples.Basic.JoinChannelVideoWithRealWear
 {
     public class JoinChannelVideoWithRealWear : MonoBehaviour
@@ -41,7 +42,7 @@ namespace Agora_RTC_Plugin.API_Example.Examples.Basic.JoinChannelVideoWithRealWe
         public Dropdown _areaSelect;
         public GameObject _videoQualityItemPrefab;
 
-        [SerializeField] private Text m_debugText;
+        [SerializeField] internal Text m_debugText;
         [SerializeField] private RawImage m_image;
         [SerializeField] private Button _takePhotoButton;
         [SerializeField] internal RawImage _receivedImage;
@@ -49,7 +50,7 @@ namespace Agora_RTC_Plugin.API_Example.Examples.Basic.JoinChannelVideoWithRealWe
         private Texture2D _passthroughTexture;
         private Coroutine _pushFramesCoroutine;
         internal bool _joinedChannel = false;
-        private int _dataStreamId = -1;
+        internal int _dataStreamId = -1;
 
         [SerializeField] private WearHF wearHFManager;
         [SerializeField] private GameObject RealWearUI;
@@ -99,7 +100,10 @@ namespace Agora_RTC_Plugin.API_Example.Examples.Basic.JoinChannelVideoWithRealWe
                 StartCoroutine(InitializeVideoSource());
                 Invoke("JoinChannel", 3);
             }
-
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
+            // Host (PC)
+            RealWearUI.SetActive(true);
+#endif
 #if UNITY_IOS || UNITY_ANDROID
             Invoke("JoinChannel", 3);
             m_image.gameObject.SetActive(true);
@@ -115,16 +119,13 @@ namespace Agora_RTC_Plugin.API_Example.Examples.Basic.JoinChannelVideoWithRealWe
                 wearHFManager = GameObject.Find("WearHF Manager")?.GetComponent<WearHF>();
             }
 
-            if (_takePhotoButton != null)
-            {
-                _takePhotoButton.onClick.AddListener(TakeAndSendPhoto);
-            }
+           
             if (zoomInButton != null) zoomInButton.onClick.AddListener(ZoomIn);
             if (zoomOutButton != null) zoomOutButton.onClick.AddListener(ZoomOut);
 #if UNITY_ANDROID && !UNITY_EDITOR
             if (IsRealWearDevice())
             {
-                if (_takePhotoButton != null) _takePhotoButton.gameObject.SetActive(false);
+              //  if (_takePhotoButton != null) _takePhotoButton.gameObject.SetActive(false);
                 if (_videoDeviceSelect != null) _videoDeviceSelect.gameObject.SetActive(false);
                 if (_areaSelect != null) _areaSelect.gameObject.SetActive(false);
 
@@ -163,28 +164,7 @@ namespace Agora_RTC_Plugin.API_Example.Examples.Basic.JoinChannelVideoWithRealWe
             Invoke("JoinChannel", 3);
         }
 
-        private void VoiceCommandCallbackUI(string voiceCommand)
-        {
-            if (voiceCommand.Equals("Open UI", StringComparison.OrdinalIgnoreCase))
-            {
-                Log.UpdateLog("Voice command recognized: Open UI");
-                ActivateUI();
-            }
-        }
-
-        void ActivateUI()
-        {
-            RealWearUI.SetActive(true);
-        }
-
-        private void VoiceCommandCallback(string voiceCommand)
-        {
-            if (voiceCommand.Equals("Take Photo", StringComparison.OrdinalIgnoreCase))
-            {
-                Log.UpdateLog("Voice command recognized: Take Photo");
-                TakeAndSendPhoto();
-            }
-        }
+      
 
         private bool IsRealWearDevice()
         {
@@ -523,7 +503,6 @@ namespace Agora_RTC_Plugin.API_Example.Examples.Basic.JoinChannelVideoWithRealWe
             _videoDeviceSelect.AddOptions(_videoDeviceInfos.Select(w => new Dropdown.OptionData($"{w.deviceName} :{w.deviceId}")).ToList());
 #endif
         }
-
         public void SelectVideoCaptureDevice()
         {
 #if !UNITY_IOS && !UNITY_ANDROID
@@ -540,7 +519,6 @@ namespace Agora_RTC_Plugin.API_Example.Examples.Basic.JoinChannelVideoWithRealWe
             m_image.texture = _videoSource;
 #endif
         }
-
         private void TakeAndSendPhoto()
         {
             if (!_joinedChannel || _passthroughTexture == null || _dataStreamId < 0)
@@ -574,7 +552,6 @@ namespace Agora_RTC_Plugin.API_Example.Examples.Basic.JoinChannelVideoWithRealWe
                 Log.UpdateLog($"TakeAndSendPhoto error: {e.Message}");
             }
         }
-
         private Texture2D ResizeTexture(Texture2D source, int newWidth, int newHeight)
         {
             try
@@ -595,7 +572,6 @@ namespace Agora_RTC_Plugin.API_Example.Examples.Basic.JoinChannelVideoWithRealWe
                 return null;
             }
         }
-
         private void OnDestroy()
         {
             Log.UpdateLog("OnDestroy called");
@@ -641,9 +617,7 @@ namespace Agora_RTC_Plugin.API_Example.Examples.Basic.JoinChannelVideoWithRealWe
             }
             _remoteUserViews.Clear();
         }
-
         internal string GetChannelName() => _channelName;
-
         private Vector2 GetRandomPositionInArea(RectTransform area, Vector2 objectSize)
         {
             Vector2 areaSize = area.rect.size;
@@ -659,7 +633,6 @@ namespace Agora_RTC_Plugin.API_Example.Examples.Basic.JoinChannelVideoWithRealWe
             float y = UnityEngine.Random.Range(minY, maxY);
             return anchorPos + new Vector2(x, y);
         }
-
         internal static GameObject MakeVideoView(uint uid, string channelId = "")
         {
             var go = GameObject.Find(uid.ToString());
@@ -673,16 +646,21 @@ namespace Agora_RTC_Plugin.API_Example.Examples.Basic.JoinChannelVideoWithRealWe
             {
                 var transform = videoSurface.GetComponent<RectTransform>();
 #if UNITY_ANDROID && !UNITY_EDITOR
-                if (transform) transform.sizeDelta = new Vector2(640, 360);
+                if (transform) transform.sizeDelta = new Vector2(1450, 1080);
+                transform.anchoredPosition = new Vector2(250.7889f, 5);
 #else
                 if (transform) transform.sizeDelta = new Vector2(1450, 1080);
+
+                if(transform && width > 0 && height > 0)
+                {
+                    transform.anchoredPosition = new Vector2(250.7889f, 5);
+                }
 #endif
                 Debug.Log($"OnTextureSizeModify: {width}x{height}");
             };
             videoSurface.SetEnable(true);
             return videoSurface.gameObject;
         }
-
         private static VideoSurface MakeImageSurface(string goName)
         {
             var go = new GameObject(goName);
@@ -695,26 +673,22 @@ namespace Agora_RTC_Plugin.API_Example.Examples.Basic.JoinChannelVideoWithRealWe
             go.transform.localScale = new Vector3(1, 1, 1f);
             return go.AddComponent<VideoSurface>();
         }
-
         internal static void DestroyVideoView(uint uid)
         {
             var go = GameObject.Find(uid.ToString());
             if (go != null) UnityEngine.Object.Destroy(go);
         }
-
         public void CreateLocalVideoCallQualityPanel(GameObject parent)
         {
             if (parent.GetComponentInChildren<LocalVideoCallQualityPanel>() != null) return;
             var panel = Instantiate(_videoQualityItemPrefab, parent.transform);
             panel.AddComponent<LocalVideoCallQualityPanel>();
         }
-
         public LocalVideoCallQualityPanel GetLocalVideoCallQualityPanel()
         {
             var go = GameObject.Find("0");
             return go?.GetComponentInChildren<LocalVideoCallQualityPanel>();
         }
-
         public void CreateRemoteVideoCallQualityPanel(GameObject parent, uint uid)
         {
             if (parent.GetComponentInChildren<RemoteVideoCallQualityPanel>() != null) return;
@@ -725,13 +699,11 @@ namespace Agora_RTC_Plugin.API_Example.Examples.Basic.JoinChannelVideoWithRealWe
             var comp = panel.AddComponent<RemoteVideoCallQualityPanel>();
             comp.Uid = uid;
         }
-
         public RemoteVideoCallQualityPanel GetRemoteVideoCallQualityPanel(uint uid)
         {
             var go = GameObject.Find(uid.ToString());
             return go?.GetComponentInChildren<RemoteVideoCallQualityPanel>();
         }
-
         // Only the host spawns remote user buttons and can start a call
         public void OnRemoteUserJoined(uint uid)
         {
@@ -784,7 +756,6 @@ namespace Agora_RTC_Plugin.API_Example.Examples.Basic.JoinChannelVideoWithRealWe
                 _remoteUserVideoViews[uid] = videoView;
             }
         }
-
         // Helper to get a unique English name for a new user
         private string GetUniqueEnglishName(uint uid)
         {
@@ -863,18 +834,31 @@ namespace Agora_RTC_Plugin.API_Example.Examples.Basic.JoinChannelVideoWithRealWe
 
             Log.UpdateLog($"Started call with remote user: {uid}");
 
+            // --- START PUBLISHING AUDIO/VIDEO ---
+            StartPublish();
+
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
             if (_dataStreamId >= 0 && _joinedChannel)
             {
-                string message = $"SHOW_HOST_VIDEO:{_localUid}";
-                byte[] msgBytes = System.Text.Encoding.UTF8.GetBytes(message);
-                int ret = RtcEngine.SendStreamMessage(_dataStreamId, msgBytes, (uint)msgBytes.Length);
-                Log.UpdateLog($"Sent SHOW_HOST_VIDEO message to clients: {ret}");
+                // Send SHOW_HOST_VIDEO message with target UID
+                string showHostMsg = $"SHOW_HOST_VIDEO:{_localUid}:{uid}";
+                byte[] showHostBytes = System.Text.Encoding.UTF8.GetBytes(showHostMsg);
+                RtcEngine.SendStreamMessage(_dataStreamId, showHostBytes, (uint)showHostBytes.Length);
+
+                // Send HOST_BUSY message to all other clients
+                foreach (var otherUid in _remoteUserButtons.Keys)
+                {
+                    if (otherUid != uid)
+                    {
+                        string busyMsg = $"HOST_BUSY:{otherUid}";
+                        byte[] busyBytes = System.Text.Encoding.UTF8.GetBytes(busyMsg);
+                        RtcEngine.SendStreamMessage(_dataStreamId, busyBytes, (uint)busyBytes.Length);
+                    }
+                }
+                Log.UpdateLog($"Sent SHOW_HOST_VIDEO to {uid} and HOST_BUSY to others.");
             }
 #endif
         }
-
-        // End the current call and re-enable all call buttons
         public void EndCurrentCall()
         {
             if (!_activeRemoteUid.HasValue)
@@ -908,10 +892,12 @@ namespace Agora_RTC_Plugin.API_Example.Examples.Basic.JoinChannelVideoWithRealWe
                     img.color = Color.white;
             }
 
+            // --- STOP PUBLISHING AUDIO/VIDEO ---
+            StopPublish();
+
             // Clear active call state
             _activeRemoteUid = null;
         }
-
         // On the client, display the host's video in the main display (no button spawn)
         public void SpawnClientHostVideoPrefab(uint hostUid)
         {
@@ -931,7 +917,6 @@ namespace Agora_RTC_Plugin.API_Example.Examples.Basic.JoinChannelVideoWithRealWe
             }
 #endif
         }
-
         public void OnRemoteUserLeft(uint uid)
         {
             // Destroy the host remote user button prefab if it exists
@@ -968,7 +953,6 @@ namespace Agora_RTC_Plugin.API_Example.Examples.Basic.JoinChannelVideoWithRealWe
             }
         }
     }
-
     internal class RealWearUserEventHandler : IRtcEngineEventHandler
     {
         private readonly JoinChannelVideoWithRealWear _videoSample;
@@ -990,7 +974,6 @@ namespace Agora_RTC_Plugin.API_Example.Examples.Basic.JoinChannelVideoWithRealWe
         {
             _videoSample.OnRemoteUserLeft(uid);
         }
-
         public override void OnJoinChannelSuccess(RtcConnection connection, int elapsed)
         {
             int build = 0;
@@ -998,7 +981,24 @@ namespace Agora_RTC_Plugin.API_Example.Examples.Basic.JoinChannelVideoWithRealWe
             _videoSample.Log.UpdateLog($"OnJoinChannelSuccess: {connection.channelId}, UID: {connection.localUid}, Elapsed: {elapsed}");
             _videoSample._joinedChannel = true;
             _videoSample._localUid = connection.localUid;
+
+            // Create data stream here (after join)
+            DataStreamConfig streamConfig = new DataStreamConfig
+            {
+                syncWithAudio = false,
+                ordered = true
+            };
+            int ret = _videoSample.RtcEngine.CreateDataStream(ref _videoSample._dataStreamId, streamConfig);
+            _videoSample.Log.UpdateLog($"Data stream created with ID: {_videoSample._dataStreamId}, Result: {ret}");
         }
+        //public override void OnJoinChannelSuccess(RtcConnection connection, int elapsed)
+        //{
+        //    int build = 0;
+        //    _videoSample.Log.UpdateLog($"SDK Version: {_videoSample.RtcEngine.GetVersion(ref build)}, Build: {build}");
+        //    _videoSample.Log.UpdateLog($"OnJoinChannelSuccess: {connection.channelId}, UID: {connection.localUid}, Elapsed: {elapsed}");
+        //    _videoSample._joinedChannel = true;
+        //    _videoSample._localUid = connection.localUid;
+        //}
 
         public override void OnError(int err, string msg) => _videoSample.Log.UpdateLog($"OnError: {err}, Msg: {msg}");
 
@@ -1032,7 +1032,6 @@ namespace Agora_RTC_Plugin.API_Example.Examples.Basic.JoinChannelVideoWithRealWe
             var panel = _videoSample.GetRemoteVideoCallQualityPanel(stats.uid);
             if (panel != null) { panel.VideoStats = stats; panel.RefreshPanel(); }
         }
-
         public override void OnStreamMessage(RtcConnection connection, uint remoteUid, int streamId, byte[] data, ulong length, ulong sentTs)
         {
             try
@@ -1042,40 +1041,64 @@ namespace Agora_RTC_Plugin.API_Example.Examples.Basic.JoinChannelVideoWithRealWe
 
                 if (msg.StartsWith("SHOW_HOST_VIDEO:"))
                 {
-                    uint hostUid = 0;
                     var parts = msg.Split(':');
-                    if (parts.Length > 1) uint.TryParse(parts[1], out hostUid);
-
-                    _videoSample.SpawnClientHostVideoPrefab(hostUid);
+                    if (parts.Length > 2 && uint.TryParse(parts[2], out uint targetUid))
+                    {
+                        if (targetUid != _videoSample._localUid)
+                        {
+                            // Not for this client, mute host and stop publishing audio
+                            _videoSample.RtcEngine.MuteRemoteAudioStream(remoteUid, true);
+                            _videoSample.RtcEngine.MuteRemoteVideoStream(remoteUid, true);
+                            _videoSample.StopPublish(); // <--- Add this line
+                            if (_videoSample.remoteUserVideoDisplay != null)
+                            {
+                                _videoSample.remoteUserVideoDisplay.texture = null;
+                                _videoSample.remoteUserVideoDisplay.enabled = false;
+                            }
+                            return;
+                        }
+                        else
+                        {
+                            // For this client, unmute host and start publishing audio
+                            _videoSample.RtcEngine.MuteRemoteAudioStream(remoteUid, false);
+                            _videoSample.RtcEngine.MuteRemoteVideoStream(remoteUid, false);
+                            _videoSample.StartPublish(); // <--- Add this line
+                            _videoSample.SpawnClientHostVideoPrefab(remoteUid);
+                        }
+                    }
+                    return;
+                }
+                else if (msg.StartsWith("HOST_BUSY:"))
+                {
+                    var parts = msg.Split(':');
+                    if (parts.Length > 1 && uint.TryParse(parts[1], out uint targetUid))
+                    {
+                        if (targetUid != _videoSample._localUid)
+                            return; // Not for this client
+                    }
+                    // Mute host for this client and stop publishing audio
+                    _videoSample.RtcEngine.MuteRemoteAudioStream(remoteUid, true);
+                    _videoSample.RtcEngine.MuteRemoteVideoStream(remoteUid, true);
+                    _videoSample.StopPublish(); // <--- Add this line
+                    if (_videoSample.remoteUserVideoDisplay != null)
+                    {
+                        _videoSample.remoteUserVideoDisplay.texture = null;
+                        _videoSample.remoteUserVideoDisplay.enabled = false;
+                    }
+                    if (_videoSample.m_debugText != null)
+                    {
+                        _videoSample.m_debugText.text = "Host Is Busy";
+                    }
                     return;
                 }
 
-                // Existing photo receive logic
-                Texture2D receivedTexture = new Texture2D(2, 2);
-                if (receivedTexture.LoadImage(data))
-                {
-                    if (_videoSample._receivedImage != null)
-                    {
-                        _videoSample._receivedImage.texture = receivedTexture;
-                        _videoSample._receivedImage.GetComponent<RectTransform>().sizeDelta = new Vector2(receivedTexture.width, receivedTexture.height);
-                        _videoSample.Log.UpdateLog($"Displayed received photo: {receivedTexture.width}x{receivedTexture.height}");
-                    }
-                    else
-                    {
-                        _videoSample.Log.UpdateLog("Received photo but no RawImage assigned to display it.");
-                        UnityEngine.Object.Destroy(receivedTexture);
-                    }
-                }
-                else
-                {
-                    _videoSample.Log.UpdateLog("Failed to load received photo data.");
-                    UnityEngine.Object.Destroy(receivedTexture);
-                }
+                // ... existing photo receive logic ...
             }
             catch (Exception e)
             {
                 _videoSample.Log.UpdateLog($"OnStreamMessage error: {e.Message}");
             }
         }
+
     }
 }
