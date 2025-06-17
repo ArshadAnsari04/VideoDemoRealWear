@@ -193,7 +193,7 @@ public class RealWearScreenshotUploader : MonoBehaviour
             return;
         }
         isCapturing = true;
-        m_wearHf.ClearCommands();
+       // m_wearHf.ClearCommands();
         StartCoroutine(CaptureCameraFrameAndUploadCoroutine());
     }
 
