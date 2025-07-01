@@ -407,3 +407,32 @@
 //#endif
 //    }
 //}
+
+
+//using NatSuite.Recorders;
+//using NatSuite.Recorders.Inputs;
+//using UnityEngine;
+//using UnityEngine.UI;
+
+//public class VideoAudioRecorder : MonoBehaviour
+//{
+//    public RawImage preview;
+//    private MP4Recorder recorder;
+//    private CameraInput camInput;
+//    private AudioInput audioInput;
+
+//    public async void StartRecording()
+//    {
+//        recorder = new MP4Recorder(1280, 720, 30, AudioSettings.outputSampleRate, 1);
+//        camInput = new CameraInput(recorder, Camera.main);
+//        audioInput = new AudioInput(recorder, true); // Enable mic
+//    }
+
+//    public async void StopRecording()
+//    {
+//        camInput.Dispose();
+//        audioInput.Dispose();
+//        string path = await recorder.FinishWriting();
+//        Debug.Log("Saved to: " + path);
+//    }
+//}

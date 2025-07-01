@@ -24,5 +24,8 @@ EditorBuildSettings:
     path: Assets/Agora-RTC-Plugin/API-Example/Examples/Basic/JoinChannelVideo/BasicVideoCallScene
       1.unity
     guid: f0b79942a798fdd44971ce3bbe22bb67
+  - enabled: 0
+    path: Assets/VideoSelf.unity
+    guid: bc413c595af97b44a9b0493e3dffdc75
   m_configObjects: {}
   m_UseUCBPForAssetBundles: 0

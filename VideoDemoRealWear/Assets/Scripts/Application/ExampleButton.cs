@@ -1,13 +1,4 @@
-﻿///////////////////////////////////////////////////////////////////////////////
-//
-// RealWear Development Software, Source Code and Object Code
-// (c) RealWear, Inc. All rights reserved.
-//
-// Contact info@realwear.com for further information about the use of this
-// code.
-//
-///////////////////////////////////////////////////////////////////////////////
-
+﻿
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;

@@ -65,7 +65,7 @@ namespace Agora_RTC_Plugin.API_Example.Examples.Basic.JoinChannelVideoWithRealWe
         public RawImage remoteUserVideoDisplay;
 
         private Dictionary<uint, GameObject> _remoteUserButtons = new Dictionary<uint, GameObject>();
-        private Dictionary<uint, GameObject> _remoteUserVideoViews = new Dictionary<uint, GameObject>();
+        internal Dictionary<uint, GameObject> _remoteUserVideoViews = new Dictionary<uint, GameObject>();
         public GameObject hostRemoteUserButtonPrefab;
         public GameObject clientRemoteUserButtonPrefab;
         internal uint _localUid = 0; // Store local UID after join
@@ -85,7 +85,7 @@ namespace Agora_RTC_Plugin.API_Example.Examples.Basic.JoinChannelVideoWithRealWe
         private GameObject _clientHostButton;
 
         // Track the currently active remote user in call
-        private uint? _activeRemoteUid = null;
+        internal uint? _activeRemoteUid = null;
         [SerializeField] private Button zoomInButton;
         [SerializeField] private Button zoomOutButton;
         private float currentZoom = 1.0f;
