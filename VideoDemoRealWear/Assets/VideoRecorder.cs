@@ -1,669 +1,4 @@
-
-
-//using FFmpegUnityBind2;
-//using FFmpegUnityBind2.Android;
-////using FFmpegUnityBind2.Shared;
-//using System;
-//using System.Collections;
-//using System.Collections.Generic;
-//using System.Diagnostics;
-//using System.IO;
-//using TMPro;
-//using UnityEngine;
-//using UnityEngine.Networking;
-//using UnityEngine.UI;
-
-//public class VideoRecorder : MonoBehaviour, IFFmpegCallbacksHandler
-//{
-//    [Header("References")]
-//    public RawImage sourceRawImage; // Assign your RawImage in the Inspector
-//    public TextMeshProUGUI statusText;
-
-//    [Header("Dropbox")]
-//    [TextArea]
-//    public string dropboxAccessToken = "YOUR_DROPBOX_ACCESS_TOKEN";
-
-//    [Header("Recording Settings")]
-//    public int frameRate = 30;
-//    public int durationSeconds = 10;
-//    public int width = 854;
-//    public int height = 480;
-
-//    private List<string> capturedFrames = new List<string>();
-//    private bool isRecording = false;
-//    private string outputFolder;
-//    private string videoFilePath;
-//    private long ffmpegExecutionId;
-//    private bool ffmpegSuccess;
-//    private string ffmpegLog = "";
-
-//    private const string FramePattern = "frame_{0:D04}.png";
-//    private const string FrameGlobPattern = "frame_%04d.png";
-//    private const int MaxSaveAttempts = 3;
-
-
-
-//    public void StartRecording()
-//    {
-//        UnityEngine.Debug.Log($"RawImage assigned: {sourceRawImage != null}");
-//        if (sourceRawImage != null)
-//            UnityEngine.Debug.Log($"RawImage.texture assigned: {sourceRawImage.texture != null}, type: {(sourceRawImage.texture != null ? sourceRawImage.texture.GetType().Name : "null")}, width: {sourceRawImage.texture.width}, height: {sourceRawImage.texture.height}");
-//        if (isRecording) return;
-//        if (sourceRawImage == null || sourceRawImage.texture == null)
-//        {
-//            UpdateStatus("RawImage or its texture is not assigned!");
-//            return;
-//        }
-//        isRecording = true;
-//        outputFolder = GetRecordingOutputFolder();
-//        if (!Directory.Exists(outputFolder))
-//        {
-//            Directory.CreateDirectory(outputFolder);
-//            UnityEngine.Debug.Log($"Created output folder: {outputFolder}");
-//        }
-//        capturedFrames.Clear();
-//        StartCoroutine(CaptureFrames());
-//        UpdateStatus("Recording started: " + outputFolder);
-//    }
-
-//    public void StopRecording()
-//    {
-//        if (!isRecording) return;
-//        isRecording = false;
-//        StopAllCoroutines();
-//        StartCoroutine(EncodeAndUpload());
-//    }
-
-//    public void CancelRecording()
-//    {
-//        if (!isRecording) return;
-//        isRecording = false;
-//        StopAllCoroutines();
-//        if (ffmpegExecutionId != 0)
-//        {
-//            FFmpegAndroid.Cancel(ffmpegExecutionId);
-//            UnityEngine.Debug.Log($"Canceled FFmpeg execution ID: {ffmpegExecutionId}");
-//            ffmpegExecutionId = 0;
-//        }
-//        foreach (var file in capturedFrames)
-//        {
-//            if (File.Exists(file)) File.Delete(file);
-//        }
-//        capturedFrames.Clear();
-//        UpdateStatus("Recording canceled and frames deleted.");
-//    }
-
-//    private IEnumerator CaptureFrames()
-//    {
-//        float interval = 1f / frameRate;
-//        int frameCount = 0;
-//        float startTime = Time.time;
-
-//        while (isRecording && (Time.time - startTime) < durationSeconds)
-//        {
-//            yield return new WaitForEndOfFrame();
-
-//            Texture srcTexture = sourceRawImage.texture;
-//            Texture2D tex = null;
-//            int attempts = 0;
-
-//            if (srcTexture is RenderTexture rt)
-//            {
-//                RenderTexture currentRT = RenderTexture.active;
-//                RenderTexture.active = rt;
-//                tex = new Texture2D(width, height, TextureFormat.RGB24, false);
-//                tex.ReadPixels(new Rect(0, 0, width, height), 0, 0);
-//                tex.Apply();
-//                RenderTexture.active = currentRT;
-//            }
-//            else if (srcTexture is Texture2D t2d)
-//            {
-//                tex = new Texture2D(width, height, TextureFormat.RGB24, false);
-//                Color[] pixels = t2d.GetPixels(0, 0, t2d.width, t2d.height);
-//                tex.SetPixels(pixels);
-//                tex.Apply();
-//            }
-//            else if (srcTexture is WebCamTexture wct)
-//            {
-//                Texture2D webcamFrame = new Texture2D(wct.width, wct.height, TextureFormat.RGB24, false);
-//                webcamFrame.SetPixels(wct.GetPixels());
-//                webcamFrame.Apply();
-
-//                if (wct.width != width || wct.height != height)
-//                {
-//                    RenderTexture rtResize = RenderTexture.GetTemporary(width, height, 0, RenderTextureFormat.Default, RenderTextureReadWrite.Linear);
-//                    RenderTexture.active = rtResize;
-//                    Graphics.Blit(webcamFrame, rtResize);
-//                    tex = new Texture2D(width, height, TextureFormat.RGB24, false);
-//                    tex.ReadPixels(new Rect(0, 0, width, height), 0, 0);
-//                    tex.Apply();
-//                    RenderTexture.active = null;
-//                    RenderTexture.ReleaseTemporary(rtResize);
-//                    UnityEngine.Object.Destroy(webcamFrame);
-//                }
-//                else
-//                {
-//                    tex = webcamFrame;
-//                }
-//            }
-//            else
-//            {
-//                UpdateStatus("Unsupported texture type for RawImage.");
-//                yield break;
-//            }
-
-//            string framePath = Path.Combine(outputFolder, string.Format(FramePattern, frameCount));
-//            byte[] pngData = tex.EncodeToPNG();
-//            while (attempts < MaxSaveAttempts && (!File.Exists(framePath) || new FileInfo(framePath).Length < 100))
-//            {
-//                try
-//                {
-//                    File.WriteAllBytes(framePath, pngData);
-//                }
-//                catch (Exception ex)
-//                {
-//                    UnityEngine.Debug.LogError($"Frame {frameCount} save attempt {attempts + 1} failed: {ex.Message}");
-//                }
-//                attempts++;
-//                yield return new WaitForSeconds(0.1f); // Brief delay between attempts
-//            }
-//            Destroy(tex);
-//            capturedFrames.Add(framePath);
-
-//            long fileSize = File.Exists(framePath) ? new FileInfo(framePath).Length : 0;
-//            if (!File.Exists(framePath) || fileSize < 100)
-//            {
-//                UpdateStatus($"Warning: Frame {frameCount} not saved correctly: {framePath} (Size: {fileSize} bytes, Attempts: {attempts})");
-//                UnityEngine.Debug.LogError($"Frame {frameCount} not saved: {framePath} (Size: {fileSize} bytes, Attempts: {attempts})");
-//            }
-//            else
-//            {
-//                UnityEngine.Debug.Log($"Frame {frameCount} saved: {framePath} (Size: {fileSize} bytes, Attempts: {attempts})");
-//            }
-
-//            frameCount++;
-//            yield return new WaitForSeconds(interval);
-//        }
-//        isRecording = false;
-//        StartCoroutine(EncodeAndUpload());
-//    }
-//    private IEnumerator EncodeAndUpload()
-//    {
-//        UpdateStatus("Encoding video...");
-//        videoFilePath = GetRecordingOutputPath();
-//        ffmpegSuccess = false;
-//        ffmpegLog = "";
-
-//        // Sanitize paths for Android compatibility
-//        string inputPattern = Path.Combine(outputFolder, FrameGlobPattern).Replace("\\", "/").Replace(" ", "\\ ").Replace("(", "\\(").Replace(")", "\\)");
-//        string outputPath = videoFilePath.Replace("\\", "/").Replace(" ", "\\ ").Replace("(", "\\(").Replace(")", "\\)");
-
-//        UnityEngine.Debug.Log($"inputPattern: {inputPattern}");
-//        UnityEngine.Debug.Log($"outputPath: {outputPath}");
-
-//#if UNITY_EDITOR || UNITY_STANDALONE_WIN
-//        if (capturedFrames.Count == 0)
-//        {
-//            UpdateStatus("No frames captured for encoding.");
-//            yield break;
-//        }
-//        foreach (var frame in capturedFrames)
-//        {
-//            if (!File.Exists(frame))
-//            {
-//                UpdateStatus($"Frame missing: {frame}");
-//                UnityEngine.Debug.LogError($"Frame missing: {frame}");
-//                yield break;
-//            }
-//        }
-
-//        string ffmpegPath = GetFFmpegPath();
-//        if (!File.Exists(ffmpegPath))
-//        {
-//            UpdateStatus("ffmpeg.exe not found at: " + ffmpegPath);
-//        }
-//        else
-//        {
-//            Process ffmpeg = new Process();
-//            ffmpeg.StartInfo.FileName = ffmpegPath;
-//            ffmpeg.StartInfo.Arguments = $"-framerate {frameRate} -i \"{inputPattern}\" -c:v mpeg4 \"{outputPath}\"";
-//            ffmpeg.StartInfo.CreateNoWindow = true;
-//            ffmpeg.StartInfo.UseShellExecute = false;
-//            ffmpeg.StartInfo.RedirectStandardOutput = true;
-//            ffmpeg.StartInfo.RedirectStandardError = true;
-//            ffmpeg.Start();
-//            string output = ffmpeg.StandardError.ReadToEnd();
-//            ffmpeg.WaitForExit();
-//            ffmpegSuccess = File.Exists(videoFilePath);
-//            if (!ffmpegSuccess)
-//            {
-//                UpdateStatus("FFmpeg error: " + output);
-//                UnityEngine.Debug.LogError("FFmpeg error: " + output);
-//            }
-//        }
-//#elif UNITY_ANDROID
-//    if (capturedFrames.Count == 0)
-//    {
-//        UpdateStatus("No frames captured for encoding.");
-//        yield break;
-//    }
-//    foreach (var frame in capturedFrames)
-//    {
-//        if (!File.Exists(frame))
-//        {
-//            UpdateStatus($"Frame missing: {frame}");
-//            UnityEngine.Debug.LogError($"Frame missing: {frame}");
-//            yield break;
-//        }
-//    }
-
-//    // Use LGPL-compatible codecs only
-//    string[] commands = new[]
-//    {
-//   // $"-framerate {frameRate} -i \"{inputPattern}\" -c:v libvpx -b:v 800k -threads 4 \"{outputPath}.webm\""
-//        $"-framerate {frameRate} -i \"{inputPattern}\" -c:v mpeg4 -q:v 5 \"{outputPath}\"",
-//        $"-framerate {frameRate} -i \"{inputPattern}\" -c:v libvpx -b:v 800k -c:a libmp3lame \"{outputPath}.webm\"",
-//        $"-framerate {frameRate} -i \"{inputPattern}\" -c:v mpeg4 -q:v 5 \"{outputPath}.avi\""
-//    };
-//    int attempt = 0;
-
-//    while (attempt < commands.Length && !ffmpegSuccess)
-//    {
-//        string command = commands[attempt];
-//        UnityEngine.Debug.Log($"FFmpeg attempt {attempt + 1} command: {command}");
-//        try
-//        {
-//            List<IFFmpegCallbacksHandler> handlers = new List<IFFmpegCallbacksHandler> { this };
-//            ffmpegExecutionId = FFmpegAndroid.Execute(command, handlers);
-//        }
-//        catch (Exception ex)
-//        {
-//            ffmpegLog = $"FFmpegUnityBind2 error (attempt {attempt + 1}): {ex.Message}\nStackTrace: {ex.StackTrace}";
-//            UpdateStatus(ffmpegLog);
-//            UnityEngine.Debug.LogError(ffmpegLog);
-//            ffmpegSuccess = false;
-//            yield break;
-//        }
-
-//        float timeout = 60f;
-//        float timer = 0f;
-//        while (ffmpegExecutionId != 0 && timer < timeout)
-//        {
-//            yield return new WaitForSeconds(1f);
-//            timer += 1f;
-//        }
-
-//        videoFilePath = (attempt == 1) ? $"{outputPath}.webm" : (attempt == 2) ? $"{outputPath}.avi" : outputPath;
-//        ffmpegSuccess = File.Exists(videoFilePath);
-//        if (!ffmpegSuccess)
-//        {
-//            UpdateStatus($"FFmpeg attempt {attempt + 1} failed: Did not produce output file.\n" + ffmpegLog);
-//            UnityEngine.Debug.LogError($"Encoding attempt {attempt + 1} failed: " + ffmpegLog);
-//            attempt++;
-//            if (attempt < commands.Length)
-//            {
-//                UnityEngine.Debug.Log($"Retrying with next format...");
-//            }
-//        }
-//    }
-
-//    if (!ffmpegSuccess)
-//    {
-//        UpdateStatus("FFmpegUnityBind2 did not produce output file after all attempts.\n" + ffmpegLog);
-//        UnityEngine.Debug.LogError("Encoding failed after all attempts: " + ffmpegLog);
-//    }
-//    else if (!File.Exists(videoFilePath))
-//    {
-//        UpdateStatus("Output file not found after encoding: " + videoFilePath);
-//        UnityEngine.Debug.LogError($"Output file missing: {videoFilePath}");
-//        ffmpegSuccess = false;
-//    }
-//#else
-//    ffmpegSuccess = false;
-//    UpdateStatus("FFmpeg encoding not supported on this platform.");
-//#endif
-
-//        // Clean up frames
-//        foreach (var file in capturedFrames)
-//        {
-//            if (File.Exists(file)) File.Delete(file);
-//        }
-//        capturedFrames.Clear();
-
-//        if (ffmpegSuccess)
-//        {
-//            UpdateStatus("Encoding complete. Uploading to Dropbox...");
-//            yield return StartCoroutine(UploadToDropboxCoroutine(videoFilePath));
-//        }
-//        else
-//        {
-//            UpdateStatus("Encoding failed.\n" + ffmpegLog);
-//        }
-//    }
-//    //    private IEnumerator EncodeAndUpload()
-//    //    {
-//    //        UpdateStatus("Encoding video...");
-//    //        videoFilePath = GetRecordingOutputPath();
-//    //        ffmpegSuccess = false;
-//    //        ffmpegLog = "";
-
-//    //        // Sanitize paths for Android compatibility
-//    //        string inputPattern = Path.Combine(outputFolder, FrameGlobPattern).Replace("\\", "/").Replace(" ", "\\ ").Replace("(", "\\(").Replace(")", "\\)");
-//    //        string outputPath = videoFilePath.Replace("\\", "/").Replace(" ", "\\ ").Replace("(", "\\(").Replace(")", "\\)");
-
-//    //        UnityEngine.Debug.Log($"inputPattern: {inputPattern}");
-//    //        UnityEngine.Debug.Log($"outputPath: {outputPath}");
-
-//    //#if UNITY_EDITOR || UNITY_STANDALONE_WIN
-//    //        if (capturedFrames.Count == 0)
-//    //        {
-//    //            UpdateStatus("No frames captured for encoding.");
-//    //            yield break;
-//    //        }
-//    //        foreach (var frame in capturedFrames)
-//    //        {
-//    //            if (!File.Exists(frame))
-//    //            {
-//    //                UpdateStatus($"Frame missing: {frame}");
-//    //                UnityEngine.Debug.LogError($"Frame missing: {frame}");
-//    //                yield break;
-//    //            }
-//    //        }
-
-//    //        string ffmpegPath = GetFFmpegPath();
-//    //        if (!File.Exists(ffmpegPath))
-//    //        {
-//    //            UpdateStatus("ffmpeg.exe not found at: " + ffmpegPath);
-//    //        }
-//    //        else
-//    //        {
-//    //            Process ffmpeg = new Process();
-//    //            ffmpeg.StartInfo.FileName = ffmpegPath;
-//    //            ffmpeg.StartInfo.Arguments = $"-framerate {frameRate} -i \"{inputPattern}\" -c:v libx264 -pix_fmt yuv420p \"{outputPath}\"";
-//    //            ffmpeg.StartInfo.CreateNoWindow = true;
-//    //            ffmpeg.StartInfo.UseShellExecute = false;
-//    //            ffmpeg.StartInfo.RedirectStandardOutput = true;
-//    //            ffmpeg.StartInfo.RedirectStandardError = true;
-//    //            ffmpeg.Start();
-//    //            string output = ffmpeg.StandardError.ReadToEnd();
-//    //            ffmpeg.WaitForExit();
-//    //            ffmpegSuccess = File.Exists(videoFilePath);
-//    //            if (!ffmpegSuccess)
-//    //            {
-//    //                UpdateStatus("FFmpeg error: " + output);
-//    //                UnityEngine.Debug.LogError("FFmpeg error: " + output);
-//    //            }
-//    //        }
-//    //#elif UNITY_ANDROID
-//    //        if (capturedFrames.Count == 0)
-//    //        {
-//    //            UpdateStatus("No frames captured for encoding.");
-//    //            yield break;
-//    //        }
-//    //        foreach (var frame in capturedFrames)
-//    //        {
-//    //            if (!File.Exists(frame))
-//    //            {
-//    //                UpdateStatus($"Frame missing: {frame}");
-//    //                UnityEngine.Debug.LogError($"Frame missing: {frame}");
-//    //                yield break;
-//    //            }
-//    //        }
-//    //        string[] commands = new[]
-//    //        {
-//    //            $"-framerate {frameRate} -i \"{inputPattern}\" -c:v mpeg4 \"{outputPath}\"",
-//    //            $"-framerate {frameRate} -i \"{inputPattern}\" -c:v mpeg4 \"{outputPath}.avi\""
-//    //        };
-//    //        // Try multiple formats with fallback
-//    //        //string[] commands = new[]
-//    //        //{
-//    //        //    $"-framerate {frameRate} -i \"{inputPattern}\" -c:v mpeg4 \"{outputPath}\"",
-//    //        //    $"-framerate {frameRate} -i \"{inputPattern}\" -c:v libx264 -pix_fmt yuv420p \"{outputPath}\"",
-//    //        //    $"-framerate {frameRate} -i \"{inputPattern}\" -c:v mpeg4 \"{outputPath}.avi\"" // Fallback to AVI
-//    //        //};
-//    //        int attempt = 0;
-
-//    //        while (attempt < commands.Length && !ffmpegSuccess)
-//    //        {
-//    //            string command = commands[attempt];
-//    //            UnityEngine.Debug.Log($"FFmpeg attempt {attempt + 1} command: {command}");
-//    //            try
-//    //            {
-//    //                List<IFFmpegCallbacksHandler> handlers = new List<IFFmpegCallbacksHandler> { this };
-//    //                ffmpegExecutionId = FFmpegAndroid.Execute(command, handlers);
-//    //            }
-//    //            catch (Exception ex)
-//    //            {
-//    //                ffmpegLog = $"FFmpegUnityBind2 error (attempt {attempt + 1}): {ex.Message}\nStackTrace: {ex.StackTrace}";
-//    //                UpdateStatus(ffmpegLog);
-//    //                UnityEngine.Debug.LogError(ffmpegLog);
-//    //                ffmpegSuccess = false;
-//    //                yield break;
-//    //            }
-
-//    //            float timeout = 60f;
-//    //            float timer = 0f;
-//    //            while (ffmpegExecutionId != 0 && timer < timeout)
-//    //            {
-//    //                yield return new WaitForSeconds(1f);
-//    //                timer += 1f;
-//    //            }
-
-//    //            videoFilePath = (attempt == 2) ? $"{outputPath}.avi" : outputPath; // Adjust for AVI fallback
-//    //            ffmpegSuccess = File.Exists(videoFilePath);
-//    //            if (!ffmpegSuccess)
-//    //            {
-//    //                UpdateStatus($"FFmpeg attempt {attempt + 1} failed: Did not produce output file.\n" + ffmpegLog);
-//    //                UnityEngine.Debug.LogError($"Encoding attempt {attempt + 1} failed: " + ffmpegLog);
-//    //                attempt++;
-//    //                if (attempt < commands.Length)
-//    //                {
-//    //                    UnityEngine.Debug.Log($"Retrying with next format...");
-//    //                }
-//    //            }
-//    //        }
-
-//    //        if (!ffmpegSuccess)
-//    //        {
-//    //            UpdateStatus("FFmpegUnityBind2 did not produce output file after all attempts.\n" + ffmpegLog);
-//    //            UnityEngine.Debug.LogError("Encoding failed after all attempts: " + ffmpegLog);
-//    //        }
-//    //        else if (!File.Exists(videoFilePath))
-//    //        {
-//    //            UpdateStatus("Output file not found after encoding: " + videoFilePath);
-//    //            UnityEngine.Debug.LogError($"Output file missing: {videoFilePath}");
-//    //            ffmpegSuccess = false;
-//    //        }
-//    //#else
-//    //        ffmpegSuccess = false;
-//    //        UpdateStatus("FFmpeg encoding not supported on this platform.");
-//    //#endif
-
-//    //        // Clean up frames
-//    //        foreach (var file in capturedFrames)
-//    //        {
-//    //            if (File.Exists(file)) File.Delete(file);
-//    //        }
-//    //        capturedFrames.Clear();
-
-//    //        if (ffmpegSuccess)
-//    //        {
-//    //            UpdateStatus("Encoding complete. Uploading to Dropbox...");
-//    //            yield return StartCoroutine(UploadToDropboxCoroutine(videoFilePath));
-//    //        }
-//    //        else
-//    //        {
-//    //            UpdateStatus("Encoding failed.\n" + ffmpegLog);
-//    //        }
-//    //    }
-
-//    private string GetRecordingOutputFolder()
-//    {
-//#if UNITY_EDITOR
-//        return Path.Combine(Application.dataPath, "Recordings");
-//#elif UNITY_ANDROID
-//        string basePath = Application.persistentDataPath;
-//        string folderPath = Path.Combine(basePath, "Recordings");
-//        if (!Directory.Exists(folderPath))
-//        {
-//            Directory.CreateDirectory(folderPath);
-//            UnityEngine.Debug.Log($"Created output folder: {folderPath} (Base: {basePath})");
-//        }
-//        return folderPath;
-//#else
-//        return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Recordings");
-//#endif
-//    }
-
-//    private string GetRecordingOutputPath()
-//    {
-//        string folder = GetRecordingOutputFolder();
-//        string fileName = $"Recording_{DateTime.Now:yyyyMMdd_HHmmss}.mp4";
-//        return Path.Combine(folder, fileName);
-//    }
-
-//    private string GetFFmpegPath()
-//    {
-//#if UNITY_EDITOR || UNITY_STANDALONE_WIN
-//        string ffmpegPath = Path.Combine(Application.streamingAssetsPath, "Desktop/Win/ffmpeg.exe");
-//        return ffmpegPath;
-//#else
-//        return string.Empty;
-//#endif
-//    }
-
-//    private IEnumerator UploadToDropboxCoroutine(string filePath)
-//    {
-//        if (!File.Exists(filePath))
-//        {
-//            UpdateStatus("File not found for upload: " + filePath);
-//            yield break;
-//        }
-
-//        byte[] fileData = File.ReadAllBytes(filePath);
-//        string fileName = Path.GetFileName(filePath);
-
-//        UnityWebRequest www = new UnityWebRequest("https://content.dropboxapi.com/2/files/upload", "POST");
-//        www.uploadHandler = new UploadHandlerRaw(fileData);
-//        www.downloadHandler = new DownloadHandlerBuffer();
-
-//        www.SetRequestHeader("Authorization", $"Bearer {dropboxAccessToken}");
-//        www.SetRequestHeader("Content-Type", "application/octet-stream");
-//        www.SetRequestHeader("Dropbox-API-Arg", $"{{\"path\": \"/{fileName}\",\"mode\": \"add\",\"autorename\": true,\"mute\": false}}");
-
-//        yield return www.SendWebRequest();
-
-//        if (www.result == UnityWebRequest.Result.Success)
-//            UpdateStatus("Upload successful!");
-//        else
-//        {
-//            UpdateStatus("Upload failed: " + www.error);
-//            // Retry upload once if file exists but upload failed
-//            if (File.Exists(filePath))
-//            {
-//                UnityEngine.Debug.Log("Retrying upload...");
-//                yield return www.SendWebRequest();
-//                if (www.result == UnityWebRequest.Result.Success)
-//                    UpdateStatus("Upload successful on retry!");
-//                else
-//                    UpdateStatus("Upload failed again: " + www.error);
-//            }
-//        }
-
-//        www.Dispose();
-//    }
-
-//    private void UpdateStatus(string message)
-//    {
-//#if UNITY_ANDROID && !UNITY_EDITOR
-//        if (statusText != null)
-//        {
-//            statusText.text += message + "\n";
-//            statusText.gameObject.SetActive(true);
-//        }
-//#else
-//        if (statusText != null)
-//        {
-//            statusText.text = message;
-//            statusText.gameObject.SetActive(true);
-//        }
-//#endif
-//        UnityEngine.Debug.Log(message);
-//    }
-
-//    // IFFmpegCallbacksHandler implementation
-//    public void OnStart(long executionId)
-//    {
-//        ffmpegExecutionId = executionId;
-//        UpdateStatus($"FFmpeg started with execution ID: {executionId}");
-//    }
-
-//    public void OnProgress(long executionId, string message)
-//    {
-//        UnityEngine.Debug.Log($"FFmpeg progress: {message}");
-//        ffmpegLog += $"FFmpeg progress: {message}\n";
-//    }
-
-//    public void OnSuccess(long executionId)
-//    {
-//        ffmpegSuccess = File.Exists(videoFilePath);
-//        if (ffmpegSuccess)
-//            UpdateStatus("FFmpeg encoding successful");
-//        else
-//            ffmpegLog = "FFmpeg reported success but output file missing: " + videoFilePath;
-//        ffmpegExecutionId = 0;
-//    }
-
-//    public void OnError(long executionId, string message)
-//    {
-//        ffmpegLog = $"FFmpeg error: {message}";
-//        UpdateStatus(ffmpegLog);
-//        UnityEngine.Debug.LogError(ffmpegLog);
-//        ffmpegSuccess = false;
-//        ffmpegExecutionId = 0;
-//    }
-
-//    public void OnCancel(long executionId)
-//    {
-//        ffmpegLog = "FFmpeg execution canceled";
-//        UpdateStatus(ffmpegLog);
-//        UnityEngine.Debug.LogError(ffmpegLog);
-//        ffmpegSuccess = false;
-//        ffmpegExecutionId = 0;
-//    }
-
-//    public void OnLog(long executionId, string message)
-//    {
-//        ffmpegLog += $"FFmpeg log: {message}\n";
-//        UnityEngine.Debug.Log($"FFmpeg log: {message}");
-//    }
-
-//    public void OnWarning(long executionId, string message)
-//    {
-//        ffmpegLog += $"FFmpeg warning: {message}\n";
-//        UnityEngine.Debug.LogWarning($"FFmpeg warning: {message}");
-//    }
-
-//    public void OnCanceled(long executionId)
-//    {
-//        ffmpegLog = "FFmpeg execution canceled";
-//        UpdateStatus(ffmpegLog);
-//        UnityEngine.Debug.LogError(ffmpegLog);
-//        ffmpegSuccess = false;
-//        ffmpegExecutionId = 0;
-//    }
-
-//    public void OnFail(long executionId)
-//    {
-//        ffmpegLog = "FFmpeg execution failed";
-//        UpdateStatus(ffmpegLog);
-//        UnityEngine.Debug.LogError(ffmpegLog);
-//        ffmpegSuccess = false;
-//        ffmpegExecutionId = 0;
-//    }
-//}
-
-
+﻿
 //using FFmpegUnityBind2;
 //using FFmpegUnityBind2.Android;
 //using System;
@@ -676,25 +11,27 @@
 //using UnityEngine.Networking;
 //using UnityEngine.UI;
 //using WearHFPlugin;
+//using Agora_RTC_Plugin.API_Example.Examples.Basic.JoinChannelVideoWithRealWear;
 
 //public class VideoRecorder : MonoBehaviour, IFFmpegCallbacksHandler
 //{
 //    [Header("References")]
-//    public RawImage sourceRawImage;
+//    public RawImage sourceRawImage; // Local RawImage (e.g., WebCamTexture on Android)
 //    public TextMeshProUGUI statusText;
 //    public Button startButton;
 //    public Button stopButton;
 //    public Slider encodingProgressBar;
 //    public WearHF wearHf;
+//    public JoinChannelVideoWithRealWear agoraManager; // Reference to Agora script
 
 //    [Header("Dropbox")]
 //    [TextArea]
 //    public string dropboxAccessToken = "YOUR_DROPBOX_ACCESS_TOKEN";
 
 //    [Header("Recording Settings")]
-//    public int frameRate = 30;
-//    public int width = 854;
-//    public int height = 480;
+//    public int frameRate = 24;
+//    public int width = 640;
+//    public int height = 360;
 
 //    private List<string> capturedFrames = new List<string>();
 //    private bool isRecording = false;
@@ -703,8 +40,8 @@
 //    private long ffmpegExecutionId;
 //    private bool ffmpegSuccess;
 //    private string ffmpegLog = "";
-//    private const string FramePattern = "frame_{0:D04}.png";
-//    private const string FrameGlobPattern = "frame_%04d.png";
+//    private const string FramePattern = "frame_{0:D04}.jpg";
+//    private const string FrameGlobPattern = "frame_%04d.jpg";
 //    private const int MaxSaveAttempts = 3;
 //    private const string voiceCommandStart = "Start Recording";
 //    private const string voiceCommandStop = "Stop Recording";
@@ -750,6 +87,14 @@
 //        else
 //            UnityEngine.Debug.LogError("WearHF Manager not found!");
 
+//        // Initialize Agora manager
+//        if (agoraManager == null)
+//        {
+//            agoraManager = FindObjectOfType<JoinChannelVideoWithRealWear>();
+//            if (agoraManager == null)
+//                UnityEngine.Debug.LogError("JoinChannelVideoWithRealWear component not found!");
+//        }
+
 //        // Ensure status text is readable
 //        if (statusText != null)
 //        {
@@ -761,9 +106,11 @@
 //    public void StartRecording()
 //    {
 //        if (isRecording) return;
-//        if (sourceRawImage == null || sourceRawImage.texture == null)
+
+//        Texture sourceTexture = GetRecordingTexture();
+//        if (sourceTexture == null)
 //        {
-//            UpdateStatus("RawImage or its texture is not assigned!");
+//            UpdateStatus("No valid texture available for recording!");
 //            return;
 //        }
 
@@ -785,6 +132,64 @@
 
 //        StartCoroutine(CaptureFrames());
 //        UpdateStatus("Recording started...");
+//    }
+
+//    private Texture GetRecordingTexture()
+//    {
+//#if UNITY_EDITOR || UNITY_STANDALONE_WIN
+//        // On Windows/Editor, prefer remote user's RawImage if active
+//        if (agoraManager != null)
+//        {
+//            if (agoraManager._activeRemoteUid.HasValue)
+//            {
+//                uint activeUid = agoraManager._activeRemoteUid.Value;
+//                if (agoraManager._remoteUserVideoViews.TryGetValue(activeUid, out GameObject videoView))
+//                {
+//                    RawImage remoteRawImage = videoView?.GetComponent<RawImage>();
+//                    if (remoteRawImage != null && remoteRawImage.enabled && remoteRawImage.texture != null)
+//                    {
+//                        Texture texture = remoteRawImage.texture;
+//                        if (texture.width > 0 && texture.height > 0)
+//                        {
+//                            UnityEngine.Debug.Log($"Recording remote user video (UID: {activeUid}, {texture.width}x{texture.height})");
+//                            return texture;
+//                        }
+//                        else
+//                        {
+//                            UnityEngine.Debug.LogWarning($"Remote texture invalid (UID: {activeUid}, width: {texture.width}, height: {texture.height})");
+//                        }
+//                    }
+//                    else
+//                    {
+//                        UnityEngine.Debug.LogWarning($"Remote RawImage invalid (UID: {activeUid}, enabled: {remoteRawImage?.enabled}, texture: {remoteRawImage?.texture})");
+//                    }
+//                }
+//                else
+//                {
+//                    UnityEngine.Debug.LogWarning($"No video view for active remote UID: {activeUid}");
+//                }
+//            }
+//            else
+//            {
+//                UnityEngine.Debug.LogWarning("No active remote user");
+//            }
+//        }
+//        else
+//        {
+//            UnityEngine.Debug.LogWarning("Agora manager not assigned");
+//        }
+//        UnityEngine.Debug.Log("Falling back to local sourceRawImage");
+//#endif
+
+//        // Fallback to local sourceRawImage
+//        if (sourceRawImage != null && sourceRawImage.texture != null && sourceRawImage.texture.width > 0 && sourceRawImage.texture.height > 0)
+//        {
+//            UnityEngine.Debug.Log($"Recording local sourceRawImage ({sourceRawImage.texture.width}x{sourceRawImage.texture.height})");
+//            return sourceRawImage.texture;
+//        }
+
+//        UnityEngine.Debug.LogError("No valid local sourceRawImage texture");
+//        return null;
 //    }
 
 //    public void StopRecording()
@@ -841,7 +246,14 @@
 //        {
 //            yield return new WaitForEndOfFrame();
 
-//            Texture srcTexture = sourceRawImage.texture;
+//            Texture srcTexture = GetRecordingTexture();
+//            if (srcTexture == null)
+//            {
+//                UpdateStatus("Texture lost during recording.");
+//                Destroy(bufferRT);
+//                yield break;
+//            }
+
 //            Texture2D tex = new Texture2D(width, height, TextureFormat.RGB24, false);
 
 //            if (srcTexture is RenderTexture rt)
@@ -874,14 +286,14 @@
 //            }
 
 //            string framePath = Path.Combine(outputFolder, string.Format(FramePattern, frameCount));
-//            byte[] pngData = tex.EncodeToPNG();
+//            byte[] jpgData = tex.EncodeToJPG(75);
 //            int attempts = 0;
 
 //            while (attempts < MaxSaveAttempts)
 //            {
 //                try
 //                {
-//                    File.WriteAllBytes(framePath, pngData);
+//                    File.WriteAllBytes(framePath, jpgData);
 //                    break;
 //                }
 //                catch (Exception ex)
@@ -948,7 +360,7 @@
 
 //        Process ffmpeg = new Process();
 //        ffmpeg.StartInfo.FileName = ffmpegPath;
-//        ffmpeg.StartInfo.Arguments = $"-framerate {frameRate} -i \"{inputPattern}\" -c:v mpeg4 -q:v 3 -pix_fmt yuv420p \"{outputPath}\"";
+//        ffmpeg.StartInfo.Arguments = $"-framerate {frameRate} -i \"{inputPattern}\" -c:v mpeg4 -q:v 5 -pix_fmt yuv420p -vf fps={frameRate} \"{outputPath}\"";
 //        ffmpeg.StartInfo.CreateNoWindow = true;
 //        ffmpeg.StartInfo.UseShellExecute = false;
 //        ffmpeg.StartInfo.RedirectStandardOutput = true;
@@ -957,8 +369,22 @@
 //        UnityEngine.Debug.Log($"FFmpeg command: {ffmpeg.StartInfo.Arguments}");
 
 //        string outputLog = "";
-//        ffmpeg.OutputDataReceived += (sender, args) => { if (args.Data != null) outputLog += args.Data + "\n"; };
-//        ffmpeg.ErrorDataReceived += (sender, args) => { if (args.Data != null) outputLog += args.Data + "\n"; };
+//        ffmpeg.OutputDataReceived += (sender, args) =>
+//        {
+//            if (args.Data != null)
+//            {
+//                outputLog += args.Data + "\n";
+//                UpdateProgressFromOutput(args.Data);
+//            }
+//        };
+//        ffmpeg.ErrorDataReceived += (sender, args) =>
+//        {
+//            if (args.Data != null)
+//            {
+//                outputLog += args.Data + "\n";
+//                UpdateProgressFromOutput(args.Data);
+//            }
+//        };
 
 //        bool startedSuccessfully = false;
 //        try
@@ -978,12 +404,10 @@
 
 //        if (startedSuccessfully)
 //        {
-//            // Progress simulation outside try-catch
 //            float elapsed = 0f;
 //            while (!ffmpeg.HasExited)
 //            {
 //                elapsed += 0.5f;
-//                encodingProgress = Mathf.Clamp01(elapsed / 30f); // Estimate 30s max encoding
 //                if (encodingProgressBar != null)
 //                    encodingProgressBar.value = encodingProgress;
 //                yield return new WaitForSeconds(0.5f);
@@ -1011,7 +435,8 @@
 //            ffmpegSuccess = false;
 //        }
 //#elif UNITY_ANDROID
-//        string command = $"-framerate {frameRate} -i \"{inputPattern}\" -c:v mpeg4 -q:v 3 -pix_fmt yuv420p -threads 2 \"{outputPath}\"";
+//        string command = $"-framerate {frameRate} -i \"{inputPattern}\" -c:v mpeg4 -q:v 5 -pix_fmt yuv420p -vf fps={frameRate} -threads 1 \"{outputPath}\"";
+//        UnityEngine.Debug.Log($"FFmpeg Android command: {command}");
 //        try
 //        {
 //            List<IFFmpegCallbacksHandler> handlers = new List<IFFmpegCallbacksHandler> { this };
@@ -1021,6 +446,8 @@
 //        {
 //            ffmpegLog = $"FFmpeg error: {ex.Message}";
 //            UpdateStatus(ffmpegLog);
+//            UnityEngine.Debug.LogError(ffmpegLog);
+//            ffmpegSuccess = false;
 //            yield break;
 //        }
 
@@ -1038,6 +465,7 @@
 //        if (!ffmpegSuccess)
 //        {
 //            UpdateStatus("Encoding failed: " + ffmpegLog);
+//            UnityEngine.Debug.LogError("Encoding failed: " + ffmpegLog);
 //        }
 //#else
 //        UpdateStatus("Encoding not supported on this platform.");
@@ -1058,6 +486,25 @@
 //        {
 //            UpdateStatus("Encoding complete. Uploading to Dropbox...");
 //            yield return StartCoroutine(UploadToDropboxCoroutine(videoFilePath));
+//        }
+//    }
+
+//    private void UpdateProgressFromOutput(string output)
+//    {
+//        if (string.IsNullOrEmpty(output) || !output.Contains("frame=")) return;
+//        try
+//        {
+//            int frameIndex = output.IndexOf("frame=");
+//            string frameStr = output.Substring(frameIndex + 6).Split(' ')[0];
+//            if (int.TryParse(frameStr, out int currentFrame) && capturedFrames.Count > 0)
+//            {
+//                encodingProgress = Mathf.Clamp01((float)currentFrame / capturedFrames.Count);
+//                UnityEngine.Debug.Log($"Progress updated: {encodingProgress:P0} ({currentFrame}/{capturedFrames.Count})");
+//            }
+//        }
+//        catch (Exception ex)
+//        {
+//            UnityEngine.Debug.LogWarning($"Failed to parse progress: {ex.Message}");
 //        }
 //    }
 
@@ -1131,19 +578,7 @@
 //    public void OnProgress(long executionId, string message)
 //    {
 //        ffmpegLog += $"Progress: {message}\n";
-//        if (message.Contains("frame="))
-//        {
-//            try
-//            {
-//                int frameIndex = message.IndexOf("frame=");
-//                string frameStr = message.Substring(frameIndex + 6).Split(' ')[0];
-//                if (int.TryParse(frameStr, out int currentFrame))
-//                {
-//                    encodingProgress = Mathf.Clamp01((float)currentFrame / capturedFrames.Count);
-//                }
-//            }
-//            catch { }
-//        }
+//        UpdateProgressFromOutput(message);
 //    }
 
 //    public void OnSuccess(long executionId)
@@ -1151,6 +586,8 @@
 //        ffmpegSuccess = File.Exists(videoFilePath);
 //        ffmpegExecutionId = 0;
 //        encodingProgress = 1f;
+//        if (encodingProgressBar != null)
+//            encodingProgressBar.value = 1f;
 //    }
 
 //    public void OnError(long executionId, string message)
@@ -1197,6 +634,7 @@
 //}
 
 
+using Agora_RTC_Plugin.API_Example.Examples.Basic.JoinChannelVideoWithRealWear;
 using FFmpegUnityBind2;
 using FFmpegUnityBind2.Android;
 using System;
@@ -1204,12 +642,13 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Text;
+using System.Text.RegularExpressions;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.UI;
 using WearHFPlugin;
-using Agora_RTC_Plugin.API_Example.Examples.Basic.JoinChannelVideoWithRealWear;
 
 public class VideoRecorder : MonoBehaviour, IFFmpegCallbacksHandler
 {
@@ -1222,9 +661,16 @@ public class VideoRecorder : MonoBehaviour, IFFmpegCallbacksHandler
     public WearHF wearHf;
     public JoinChannelVideoWithRealWear agoraManager; // Reference to Agora script
 
-    [Header("Dropbox")]
+    [Header("Upload Settings")]
     [TextArea]
     public string dropboxAccessToken = "YOUR_DROPBOX_ACCESS_TOKEN";
+    public bool uploadToGitHub = false; // Toggle between GitHub and Dropbox
+    [TextArea]
+    public string gitHubAccessToken = "YOUR_GITHUB_PERSONAL_ACCESS_TOKEN"; // GitHub PAT with repo scope
+    public string gitHubOwner = "ArshadAnsari04"; // GitHub username
+    public string gitHubRepo = "UploadedData"; // Repository name
+    public string gitHubPath = "videos"; // Base folder path in repo
+    public string gitHubBranch = "main"; // Initial branch (will be validated)
 
     [Header("Recording Settings")]
     public int frameRate = 24;
@@ -1244,6 +690,7 @@ public class VideoRecorder : MonoBehaviour, IFFmpegCallbacksHandler
     private const string voiceCommandStart = "Start Recording";
     private const string voiceCommandStop = "Stop Recording";
     private float encodingProgress = 0f;
+    private string currentDeviceIdentifier; // Store device ID or name
 
     private void Start()
     {
@@ -1299,13 +746,67 @@ public class VideoRecorder : MonoBehaviour, IFFmpegCallbacksHandler
             statusText.fontSize = 24;
             statusText.gameObject.SetActive(false);
         }
+
+        // Validate GitHub settings at startup
+        if (uploadToGitHub)
+        {
+            StartCoroutine(ValidateGitHubSettings());
+        }
+    }
+
+    private IEnumerator ValidateGitHubSettings()
+    {
+        if (string.IsNullOrEmpty(gitHubAccessToken) || string.IsNullOrEmpty(gitHubOwner) || string.IsNullOrEmpty(gitHubRepo))
+        {
+            UpdateStatus("GitHub settings incomplete: Missing access token, owner, or repository.");
+            UnityEngine.Debug.LogError("GitHub settings incomplete: Missing access token, owner, or repository.");
+            yield break;
+        }
+
+        string repoUrl = $"https://api.github.com/repos/{gitHubOwner}/{gitHubRepo}";
+        UnityEngine.Debug.Log($"Validating GitHub repository: {repoUrl}");
+        UnityWebRequest repoRequest = UnityWebRequest.Get(repoUrl);
+        repoRequest.SetRequestHeader("Authorization", $"Bearer {gitHubAccessToken}");
+        repoRequest.SetRequestHeader("Accept", "application/vnd.github.v3+json");
+        repoRequest.SetRequestHeader("User-Agent", "UnityVideoRecorder");
+
+        yield return repoRequest.SendWebRequest();
+
+        if (repoRequest.result == UnityWebRequest.Result.Success)
+        {
+            UnityEngine.Debug.Log($"GitHub repository validated: {gitHubOwner}/{gitHubRepo}");
+            string jsonResponse = repoRequest.downloadHandler.text;
+            RepositoryInfo repoInfo = JsonUtility.FromJson<RepositoryInfo>(jsonResponse);
+            if (!string.IsNullOrEmpty(repoInfo.default_branch))
+            {
+                gitHubBranch = repoInfo.default_branch;
+                UnityEngine.Debug.Log($"Detected default branch: {gitHubBranch}");
+            }
+            else
+            {
+                UnityEngine.Debug.LogWarning("Could not detect default branch, using configured branch: {gitHubBranch}");
+            }
+        }
+        else
+        {
+            UpdateStatus($"GitHub repository validation failed: {repoRequest.error}\nResponse: {repoRequest.downloadHandler.text}");
+            UnityEngine.Debug.LogError($"GitHub repository validation failed: {repoRequest.error}\nResponse: {repoRequest.downloadHandler.text}");
+        }
+
+        repoRequest.Dispose();
+    }
+
+    [System.Serializable]
+    private class RepositoryInfo
+    {
+        public string default_branch;
     }
 
     public void StartRecording()
     {
         if (isRecording) return;
 
-        Texture sourceTexture = GetRecordingTexture();
+        Texture sourceTexture = GetRecordingTexture(out currentDeviceIdentifier);
         if (sourceTexture == null)
         {
             UpdateStatus("No valid texture available for recording!");
@@ -1332,8 +833,10 @@ public class VideoRecorder : MonoBehaviour, IFFmpegCallbacksHandler
         UpdateStatus("Recording started...");
     }
 
-    private Texture GetRecordingTexture()
+    private Texture GetRecordingTexture(out string deviceIdentifier)
     {
+        deviceIdentifier = "UnknownDevice";
+
 #if UNITY_EDITOR || UNITY_STANDALONE_WIN
         // On Windows/Editor, prefer remote user's RawImage if active
         if (agoraManager != null)
@@ -1349,7 +852,17 @@ public class VideoRecorder : MonoBehaviour, IFFmpegCallbacksHandler
                         Texture texture = remoteRawImage.texture;
                         if (texture.width > 0 && texture.height > 0)
                         {
-                            UnityEngine.Debug.Log($"Recording remote user video (UID: {activeUid}, {texture.width}x{texture.height})");
+                            // Get remote user name or fallback to device ID
+                            if (agoraManager._assignedNames.TryGetValue(activeUid, out string userName) && !string.IsNullOrEmpty(userName))
+                            {
+                                deviceIdentifier = userName.Trim();
+                                UnityEngine.Debug.Log($"Recording remote user video (UID: {activeUid}, Name: {deviceIdentifier}, {texture.width}x{texture.height})");
+                            }
+                            else
+                            {
+                                deviceIdentifier = $"Device_{activeUid}";
+                                UnityEngine.Debug.LogWarning($"No name found for UID: {activeUid}, using device ID: {deviceIdentifier}");
+                            }
                             return texture;
                         }
                         else
@@ -1369,12 +882,14 @@ public class VideoRecorder : MonoBehaviour, IFFmpegCallbacksHandler
             }
             else
             {
-                UnityEngine.Debug.LogWarning("No active remote user");
+                UnityEngine.Debug.LogWarning("No active remote user, using fallback device ID");
+                deviceIdentifier = $"EditorDevice_{SystemInfo.deviceUniqueIdentifier.GetHashCode()}";
             }
         }
         else
         {
-            UnityEngine.Debug.LogWarning("Agora manager not assigned");
+            UnityEngine.Debug.LogWarning("Agora manager not assigned, using fallback device ID");
+            deviceIdentifier = $"EditorDevice_{SystemInfo.deviceUniqueIdentifier.GetHashCode()}";
         }
         UnityEngine.Debug.Log("Falling back to local sourceRawImage");
 #endif
@@ -1404,6 +919,7 @@ public class VideoRecorder : MonoBehaviour, IFFmpegCallbacksHandler
             wearHf.ClearCommands();
             wearHf.AddVoiceCommand(voiceCommandStart, (cmd) => StartRecording());
         }
+        currentDeviceIdentifier = null;
     }
 
     public void CancelRecording()
@@ -1432,6 +948,7 @@ public class VideoRecorder : MonoBehaviour, IFFmpegCallbacksHandler
         }
 
         UpdateStatus("Recording canceled.");
+        currentDeviceIdentifier = null;
     }
 
     private IEnumerator CaptureFrames()
@@ -1444,7 +961,7 @@ public class VideoRecorder : MonoBehaviour, IFFmpegCallbacksHandler
         {
             yield return new WaitForEndOfFrame();
 
-            Texture srcTexture = GetRecordingTexture();
+            Texture srcTexture = GetRecordingTexture(out string _);
             if (srcTexture == null)
             {
                 UpdateStatus("Texture lost during recording.");
@@ -1682,9 +1199,205 @@ public class VideoRecorder : MonoBehaviour, IFFmpegCallbacksHandler
 
         if (ffmpegSuccess)
         {
-            UpdateStatus("Encoding complete. Uploading to Dropbox...");
-            yield return StartCoroutine(UploadToDropboxCoroutine(videoFilePath));
+            UpdateStatus(uploadToGitHub ? "Encoding complete. Uploading to GitHub..." : "Encoding complete. Uploading to Dropbox...");
+            yield return StartCoroutine(uploadToGitHub ? UploadToGitHubCoroutine(videoFilePath) : UploadToDropboxCoroutine(videoFilePath));
         }
+    }
+
+    private IEnumerator UploadToGitHubCoroutine(string filePath)
+    {
+        if (!File.Exists(filePath))
+        {
+            UpdateStatus("File not found for upload: " + filePath);
+            yield break;
+        }
+
+        if (string.IsNullOrEmpty(gitHubAccessToken) || string.IsNullOrEmpty(gitHubOwner) || string.IsNullOrEmpty(gitHubRepo) || string.IsNullOrEmpty(gitHubBranch))
+        {
+            UpdateStatus("GitHub upload failed: Missing access token, owner, repository, or branch.");
+            UnityEngine.Debug.LogError("GitHub upload failed: Missing access token, owner, repository, or branch.");
+            yield break;
+        }
+
+        // Pre-upload permission check
+        string repoUrl = $"https://api.github.com/repos/{gitHubOwner}/{gitHubRepo}";
+        UnityWebRequest repoCheck = UnityWebRequest.Get(repoUrl);
+        repoCheck.SetRequestHeader("Authorization", $"Bearer {gitHubAccessToken}");
+        repoCheck.SetRequestHeader("Accept", "application/vnd.github.v3+json");
+        repoCheck.SetRequestHeader("User-Agent", "UnityVideoRecorder");
+        yield return repoCheck.SendWebRequest();
+
+        if (repoCheck.result != UnityWebRequest.Result.Success)
+        {
+            UpdateStatus($"GitHub pre-upload check failed: {repoCheck.error}\nResponse: {repoCheck.downloadHandler.text}");
+            UnityEngine.Debug.LogError($"GitHub pre-upload check failed: {repoCheck.error}\nResponse: {repoCheck.downloadHandler.text}");
+            repoCheck.Dispose();
+            yield break;
+        }
+        repoCheck.Dispose();
+
+        // Write access check using HEAD request
+        string testUrl = $"https://api.github.com/repos/{gitHubOwner}/{gitHubRepo}?ref={gitHubBranch}";
+        UnityEngine.Debug.Log($"Write access check URL: {testUrl}");
+        UnityWebRequest writeCheck = UnityWebRequest.Head(testUrl);
+        writeCheck.SetRequestHeader("Authorization", $"Bearer {gitHubAccessToken}");
+        writeCheck.SetRequestHeader("Accept", "application/vnd.github.v3+json");
+        writeCheck.SetRequestHeader("User-Agent", "UnityVideoRecorder");
+        yield return writeCheck.SendWebRequest();
+
+        if (writeCheck.result != UnityWebRequest.Result.Success)
+        {
+            UpdateStatus($"GitHub write access check failed: {writeCheck.error}\nResponse: {writeCheck.downloadHandler.text}");
+            UnityEngine.Debug.LogError($"GitHub write access check failed: {writeCheck.error}\nResponse: {writeCheck.downloadHandler.text}");
+            if (!writeCheck.downloadHandler.text.Contains("Repository not found"))
+            {
+                UnityEngine.Debug.LogWarning("Proceeding with upload despite write check failure; GitHub will create the path if needed.");
+            }
+            else
+            {
+                writeCheck.Dispose();
+                yield break;
+            }
+        }
+        else
+        {
+            UnityEngine.Debug.Log("GitHub write access check successful.");
+        }
+        writeCheck.Dispose();
+
+        byte[] fileData = File.ReadAllBytes(filePath);
+        string fileName = Path.GetFileName(filePath);
+
+        // Use device identifier with dynamic date
+        string deviceIdentifier = agoraManager != null && agoraManager._activeRemoteUid.HasValue
+            ? (agoraManager._assignedNames.TryGetValue(agoraManager._activeRemoteUid.Value, out string userName) && !string.IsNullOrEmpty(userName)
+                ? userName.Trim()
+                : $"Device_{agoraManager._activeRemoteUid.Value}")
+            : $"EditorDevice_{SystemInfo.deviceUniqueIdentifier.GetHashCode()}";
+        string currentDate = DateTime.Now.ToString("ddMMMMyyyy"); // e.g., "01July2025" for July 01, 2025
+        string gitHubFilePathRaw = Path.Combine(gitHubPath, deviceIdentifier, "Videos", currentDate, fileName).Replace("\\", "/");
+
+        string gitHubFilePath = SanitizePath(gitHubFilePathRaw);
+        if (gitHubFilePath.Length > 400) // GitHub path length limit
+        {
+            UpdateStatus("GitHub upload failed: Path exceeds 400 characters limit.");
+            UnityEngine.Debug.LogError($"GitHub upload failed: Path exceeds 400 characters: {gitHubFilePath}");
+            yield break;
+        }
+        UnityEngine.Debug.Log($"GitHub upload path (raw): {gitHubFilePathRaw}");
+        UnityEngine.Debug.Log($"GitHub upload path (sanitized): {gitHubFilePath}");
+
+        // Encode file to Base64
+        string base64Content = Convert.ToBase64String(fileData);
+
+        // Prepare JSON payload with proper escaping
+        GitHubUploadPayload payload = new GitHubUploadPayload
+        {
+            message = $"Upload video {fileName} via Unity",
+            content = base64Content,
+            branch = gitHubBranch
+        };
+        string jsonPayload = JsonUtility.ToJson(payload);
+        UnityEngine.Debug.Log($"GitHub JSON Payload: {jsonPayload}");
+
+        // Ensure the full path is escaped for the API
+        string apiUrl = $"https://api.github.com/repos/{gitHubOwner}/{gitHubRepo}/contents/{UnityWebRequest.EscapeURL(gitHubFilePath)}";
+        UnityEngine.Debug.Log($"GitHub API URL: {apiUrl}");
+
+        UnityWebRequest www = new UnityWebRequest(apiUrl, "PUT");
+        byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonPayload);
+        www.uploadHandler = new UploadHandlerRaw(bodyRaw);
+        www.downloadHandler = new DownloadHandlerBuffer();
+        www.SetRequestHeader("Authorization", $"Bearer {gitHubAccessToken}");
+        www.SetRequestHeader("Content-Type", "application/json");
+        www.SetRequestHeader("Accept", "application/vnd.github.v3+json");
+        www.SetRequestHeader("User-Agent", "UnityVideoRecorder");
+
+        yield return www.SendWebRequest();
+
+        if (www.result == UnityWebRequest.Result.Success)
+        {
+            UpdateStatus("GitHub upload successful!");
+            UnityEngine.Debug.Log($"GitHub upload response: {www.downloadHandler.text}");
+        }
+        else
+        {
+            string errorDetails = $"GitHub upload failed: {www.error}\nResponse: {www.downloadHandler.text}";
+            UpdateStatus(errorDetails);
+            UnityEngine.Debug.LogError(errorDetails);
+
+            if (www.downloadHandler.text.Contains("403"))
+            {
+                UnityEngine.Debug.LogError("403 Error: The PAT lacks permission to access or modify the repository. Ensure it has 'repo' scope and access to ArshadAnsari04/UploadedData.");
+            }
+            else if (www.downloadHandler.text.Contains("404"))
+            {
+                UnityEngine.Debug.LogError("404 Error: Verify gitHubOwner, gitHubRepo, and gitHubBranch. Ensure repository exists and branch is correct.");
+            }
+            else if (www.downloadHandler.text.Contains("422"))
+            {
+                UnityEngine.Debug.LogError("422 Error: Path is malformed. Check sanitized gitHubFilePath for invalid characters or length. GitHub should create the path if valid.");
+            }
+        }
+
+        www.Dispose();
+    }
+
+    private string SanitizePath(string path)
+    {
+        // Remove or replace invalid characters for GitHub paths (e.g., :, *, ?, ", <, >, |) and normalize
+        string sanitized = Regex.Replace(path, "[*:?\"<>|]", "_");
+        sanitized = sanitized.Trim().Replace("//", "/"); // Normalize double slashes
+        sanitized = sanitized.TrimStart('/').TrimEnd('/');
+        return sanitized;
+    }
+
+    [System.Serializable]
+    private class GitHubUploadPayload
+    {
+        public string message;
+        public string content;
+        public string branch;
+    }
+
+    private IEnumerator UploadToDropboxCoroutine(string filePath)
+    {
+        if (!File.Exists(filePath))
+        {
+            UpdateStatus("File not found for upload: " + filePath);
+            yield break;
+        }
+
+        byte[] fileData = File.ReadAllBytes(filePath);
+        string fileName = Path.GetFileName(filePath);
+        string deviceIdentifier = agoraManager != null && agoraManager._activeRemoteUid.HasValue
+            ? (agoraManager._assignedNames.TryGetValue(agoraManager._activeRemoteUid.Value, out string userName) && !string.IsNullOrEmpty(userName)
+                ? userName.Trim()
+                : $"Device_{agoraManager._activeRemoteUid.Value}")
+            : $"EditorDevice_{SystemInfo.deviceUniqueIdentifier.GetHashCode()}";
+        string currentDate = DateTime.Now.ToString("ddMMMMyyyy"); // e.g., "01July2025"
+        string dropboxFilePath = deviceIdentifier != "UnknownDevice"
+            ? $"/{UnityWebRequest.EscapeURL(deviceIdentifier)}/Videos/{currentDate}/{fileName}"
+            : $"/{fileName}";
+
+        UnityEngine.Debug.Log($"Dropbox upload path: {dropboxFilePath}");
+
+        UnityWebRequest www = new UnityWebRequest("https://content.dropboxapi.com/2/files/upload", "POST");
+        www.uploadHandler = new UploadHandlerRaw(fileData);
+        www.downloadHandler = new DownloadHandlerBuffer();
+
+        www.SetRequestHeader("Authorization", $"Bearer {dropboxAccessToken}");
+        www.SetRequestHeader("Content-Type", "application/octet-stream");
+        www.SetRequestHeader("Dropbox-API-Arg", $"{{\"path\": \"{dropboxFilePath}\",\"mode\": \"add\",\"autorename\": true,\"mute\": false}}");
+
+        yield return www.SendWebRequest();
+
+        if (www.result == UnityWebRequest.Result.Success)
+            UpdateStatus("Dropbox upload successful!");
+        else
+            UpdateStatus("Dropbox upload failed: " + www.error);
+
+        www.Dispose();
     }
 
     private void UpdateProgressFromOutput(string output)
@@ -1708,16 +1421,33 @@ public class VideoRecorder : MonoBehaviour, IFFmpegCallbacksHandler
 
     private string GetRecordingOutputFolder()
     {
-        string folderPath = Path.Combine(Application.persistentDataPath, "Recordings");
-        if (!Directory.Exists(folderPath))
-            Directory.CreateDirectory(folderPath);
-        return folderPath;
+        string deviceIdentifier = agoraManager != null && agoraManager._activeRemoteUid.HasValue
+            ? (agoraManager._assignedNames.TryGetValue(agoraManager._activeRemoteUid.Value, out string userName) && !string.IsNullOrEmpty(userName)
+                ? userName.Trim()
+                : $"Device_{agoraManager._activeRemoteUid.Value}")
+            : $"EditorDevice_{SystemInfo.deviceUniqueIdentifier.GetHashCode()}";
+        string baseFolder = Path.Combine(Application.persistentDataPath, deviceIdentifier, "Videos");
+        string currentDate = DateTime.Now.ToString("ddMMMMyyyy"); // e.g., "01July2025" for July 01, 2025
+        string videoFolder = Path.Combine(baseFolder, currentDate);
+        if (!Directory.Exists(videoFolder))
+        {
+            try
+            {
+                Directory.CreateDirectory(videoFolder);
+                UnityEngine.Debug.Log($"Created folder: {videoFolder}");
+            }
+            catch (Exception ex)
+            {
+                UnityEngine.Debug.LogError($"Failed to create folder {videoFolder}: {ex.Message}");
+            }
+        }
+        return videoFolder;
     }
 
     private string GetRecordingOutputPath()
     {
         string folder = GetRecordingOutputFolder();
-        string fileName = $"Recording_{DateTime.Now:yyyyMMdd_HHmmss}.mp4";
+        string fileName = $"Recording_{DateTime.Now:yyyyMMdd_HHmmss}.mp4"; // e.g., Recording_20250701_170523.mp4
         return Path.Combine(folder, fileName);
     }
 
@@ -1725,35 +1455,6 @@ public class VideoRecorder : MonoBehaviour, IFFmpegCallbacksHandler
     {
         string ffmpegPath = Path.Combine(Application.streamingAssetsPath, "Desktop/Win/ffmpeg.exe");
         return ffmpegPath;
-    }
-
-    private IEnumerator UploadToDropboxCoroutine(string filePath)
-    {
-        if (!File.Exists(filePath))
-        {
-            UpdateStatus("File not found for upload: " + filePath);
-            yield break;
-        }
-
-        byte[] fileData = File.ReadAllBytes(filePath);
-        string fileName = Path.GetFileName(filePath);
-
-        UnityWebRequest www = new UnityWebRequest("https://content.dropboxapi.com/2/files/upload", "POST");
-        www.uploadHandler = new UploadHandlerRaw(fileData);
-        www.downloadHandler = new DownloadHandlerBuffer();
-
-        www.SetRequestHeader("Authorization", $"Bearer {dropboxAccessToken}");
-        www.SetRequestHeader("Content-Type", "application/octet-stream");
-        www.SetRequestHeader("Dropbox-API-Arg", $"{{\"path\": \"/{fileName}\",\"mode\": \"add\",\"autorename\": true,\"mute\": false}}");
-
-        yield return www.SendWebRequest();
-
-        if (www.result == UnityWebRequest.Result.Success)
-            UpdateStatus("Upload successful!");
-        else
-            UpdateStatus("Upload failed: " + www.error);
-
-        www.Dispose();
     }
 
     private void UpdateStatus(string message)
